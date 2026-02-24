@@ -1,12 +1,47 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 @Injectable()
 export class MoviesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private subscriptionsService: SubscriptionsService,
+  ) {}
 
- 
-  async getAllMovies(limit = 10, skip = 0, accessType?: string, categoryId?: number) {
+
+
+  async getMovieById(id: number, userId?: number) {
+    const movie = await this.prisma.movie.findUnique({
+      where: { id },
+      include: {
+        categories: true,
+        reviews: { include: { user: { select: { id: true, username: true } } } }, 
+        files: true,
+      },
+    });
+
+    if (!movie) {
+      throw new NotFoundException('Kino topilmadi');
+    }
+
+   
+    if (movie.accessType === 'PREMIUM' && userId !== undefined) {
+      const hasPremium = await this.subscriptionsService.hasActivePremiumSubscription(userId);
+
+      if (!hasPremium) {
+        throw new ForbiddenException('Bu kino faqat Premium obunachilar uchun mavjud');
+      }
+    }
+
+    
+
+    return movie;
+  }
+
+  
+
+async getAllMovies(limit = 10, skip = 0, accessType?: string, categoryId?: number) {
     const where: any = {};
     if (accessType) where.accessType = accessType;
     if (categoryId) {
@@ -23,16 +58,7 @@ export class MoviesService {
     });
   }
 
- 
-  async getMovieById(id: number) {
-    return this.prisma.movie.findUnique({
-      where: { id },
-      include: { categories: true, reviews: { include: { user: true } }, files: true },
-    });
-  }
-
-
-  async createMovie(
+ async createMovie(
     data: {
       title: string;
       description: string;
@@ -96,3 +122,18 @@ export class MoviesService {
     });
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

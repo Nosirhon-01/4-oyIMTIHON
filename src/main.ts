@@ -2,11 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import 'dotenv/config';
 import { AppModule } from './app.module';
+import multer from 'multer';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-
+  app.use(multer({ dest: './uploads' }).any());
   const config = new DocumentBuilder()
     .setTitle('Movie Streaming Platform API')
     .setDescription('A movie streaming platform with subscriptions, reviews, and more')

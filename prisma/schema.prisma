@@ -86,7 +86,7 @@ model Payment {
   id             Int                 @id @default(autoincrement())
   amount         Float
   currency       String              @default("USD")
-  method         String
+  method         String              
   status         PaymentStatus       @default(COMPLETED)
   createdAt      DateTime            @default(now())
   userId         Int
