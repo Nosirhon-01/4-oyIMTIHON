@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -16,6 +16,18 @@ export class SubscriptionsService {
     });
   }
 
+  async getCurrentSubscription(userId: number) {
+    return this.prisma.userSubscription.findFirst({
+      where: {
+        userId,
+        status: 'ACTIVE',
+        endDate: { gt: new Date() },
+      },
+      include: { plan: true },
+      orderBy: { endDate: 'desc' },
+    });
+  }
+
   async hasActivePremiumSubscription(userId: number): Promise<boolean> {
     const subscription = await this.prisma.userSubscription.findFirst({
       where: {
@@ -30,8 +42,8 @@ export class SubscriptionsService {
   }
 
   /**
-   * Mocked payment: faqat karta raqami 16 ta raqamdan iborat bo'lsa muvaffaqiyatli hisoblanadi
-   * Real hayotda Stripe yoki boshqa payment gateway bilan almashtiriladi
+    Mocked payment: faqat karta raqami 16 ta raqamdan iborat bo'lsa muvaffaqiyatli hisoblanadi
+
    */
   async purchaseSubscription(userId: number, planId: number, cardNumber: string) {
     const plan = await this.prisma.subscriptionPlan.findUnique({
@@ -83,17 +95,22 @@ export class SubscriptionsService {
     };
   }
 
-  async cancelSubscription(userId: number, subscriptionId: number) {
-    const subscription = await this.prisma.userSubscription.findUnique({
-      where: { id: subscriptionId },
+  async cancelCurrentSubscription(userId: number) {
+    const subscription = await this.prisma.userSubscription.findFirst({
+      where: {
+        userId,
+        status: 'ACTIVE',
+        endDate: { gt: new Date() },
+      },
+      orderBy: { endDate: 'desc' },
     });
 
-    if (!subscription || subscription.userId !== userId) {
-      throw new ForbiddenException('Faqat o\'zingizning obunangizni bekor qila olasiz');
+    if (!subscription) {
+      throw new BadRequestException('Aktiv obuna topilmadi');
     }
 
     return this.prisma.userSubscription.update({
-      where: { id: subscriptionId },
+      where: { id: subscription.id },
       data: { status: 'CANCELLED' },
     });
   }
@@ -101,6 +118,22 @@ export class SubscriptionsService {
   async createPlan(data: { name: string; price: number; duration: number; features: string }) {
     return this.prisma.subscriptionPlan.create({
       data,
+    });
+  }
+
+  async updatePlan(
+    planId: number,
+    data: Partial<{ name: string; price: number; duration: number; features: string }>,
+  ) {
+    return this.prisma.subscriptionPlan.update({
+      where: { id: planId },
+      data,
+    });
+  }
+
+  async deletePlan(planId: number) {
+    return this.prisma.subscriptionPlan.delete({
+      where: { id: planId },
     });
   }
 }

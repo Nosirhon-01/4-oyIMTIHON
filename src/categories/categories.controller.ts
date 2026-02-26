@@ -1,38 +1,27 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { AdminGuard } from '../auth/guards';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Categories')
 @Controller('api/categories')
 export class CategoriesController {
-  constructor(private categoriesService: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all categories' })
+  @ApiOperation({
+    summary: 'Kategoriyalar royxati',
+    description: "Public endpoint. Barcha kategoriyalar ro'yxatini qaytaradi.",
+  })
   async getAllCategories() {
     return this.categoriesService.getAllCategories();
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Post()
-  @ApiOperation({ summary: 'Create category (admin only)' })
-  async createCategory(@Body() body: { name: string; description?: string }) {
-    return this.categoriesService.createCategory(body);
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Put(':id')
-  @ApiOperation({ summary: 'Update category (admin only)' })
-  async updateCategory(@Param('id') id: string, @Body() body: { name?: string; description?: string }) {
-    return this.categoriesService.updateCategory(parseInt(id), body);
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete category (admin only)' })
-  async deleteCategory(@Param('id') id: string) {
-    return this.categoriesService.deleteCategory(parseInt(id));
+  @Get(':slug')
+  @ApiOperation({
+    summary: 'Slug boyicha kategoriya',
+    description: "Public endpoint. Berilgan slug bo'yicha kategoriya ma'lumotini qaytaradi.",
+  })
+  async getCategoryBySlug(@Param('slug') slug: string) {
+    return this.categoriesService.getCategoryBySlug(slug);
   }
 }

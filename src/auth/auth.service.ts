@@ -31,13 +31,19 @@ export class AuthService {
     return { id: user.id, username: user.username, email: user.email };
   }
 
-  async login(username: string, password: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username },
+  async login(login: string, password: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ username: login }, { email: login }],
+      },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    if (!user.password) {
+      throw new UnauthorizedException('Invalid password');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);

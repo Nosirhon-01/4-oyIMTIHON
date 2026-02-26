@@ -10,6 +10,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { WatchHistoryModule } from './watch-history/watch-history.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { CategoriesModule } from './categories/categories.module';
     ReviewsModule,
     FavoritesModule,
     WatchHistoryModule,
-    CategoriesModule
+    CategoriesModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -15,12 +15,16 @@ export class FavoritesService {
 
  
   async addFavorite(userId: number, movieId: number) {
+    if (!Number.isInteger(movieId) || movieId <= 0) {
+      throw new BadRequestException('movie_id noto\'g\'ri');
+    }
+
     const exists = await this.prisma.favorite.findUnique({
       where: { userId_movieId: { userId, movieId } },
     });
 
     if (exists) {
-      throw new Error('Movie already in favorites');
+      throw new BadRequestException("Kino allaqachon sevimlilarga qo'shilgan");
     }
 
     return this.prisma.favorite.create({
@@ -35,7 +39,7 @@ export class FavoritesService {
     });
 
     if (!favorite) {
-      throw new Error('Movie not in favorites');
+      throw new NotFoundException("Kino sevimlilar ro'yxatida topilmadi");
     }
 
     return this.prisma.favorite.delete({

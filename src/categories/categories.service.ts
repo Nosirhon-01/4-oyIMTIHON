@@ -10,6 +10,19 @@ export class CategoriesService {
     return this.prisma.category.findMany();
   }
 
+  async getCategoryBySlug(slug: string) {
+    return this.prisma.category.findUnique({
+      where: { slug },
+      include: {
+        movies: {
+          include: {
+            movie: true,
+          },
+        },
+      },
+    });
+  }
+
 
   async createCategory(data: { name: string }) {
     const slug = this.generateSlug(data.name);

@@ -1,72 +1,45 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Param,
-  Body,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
-import { ReviewsService } from './reviews.service';
+import { BadRequestException, Body, Controller, Delete, Param, Put, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { UpdateReviewDto } from './dto/review.dto';
+import { ReviewsService } from './reviews.service';
 
 @ApiTags('Reviews')
 @Controller('api/reviews')
 export class ReviewsController {
-  constructor(private reviewsService: ReviewsService) {}
-
- 
-  @Get('movie/:movieId')
-  @ApiOperation({ summary: 'Get reviews for a movie' })
-  async getMovieReviews(@Param('movieId') movieId: string) {
-    return this.reviewsService.getMovieReviews(parseInt(movieId));
-  }
-
+  constructor(private readonly reviewsService: ReviewsService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Post()
-  @ApiOperation({ summary: 'Create review' })
-  async createReview(
-    @Body() body: { movieId: number; rating: number; comment?: string },
-    @Request() req: any,
-  ) {
-    return this.reviewsService.createReview(
-      body.movieId,
-      req.user.userId,
-      body.rating,
-      body.comment,
-    );
-  }
-
-
-  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Put(':id')
-  @ApiOperation({ summary: 'Update review' })
+  @ApiOperation({
+    summary: 'Sharhni yangilash',
+    description: "Sharhni yangilash (faqat sharh egasi yoki admin ruxsatiga ega foydalanuvchilar uchun).",
+  })
+  @ApiBody({ type: UpdateReviewDto })
   async updateReview(
     @Param('id') id: string,
-    @Body() body: { rating: number; comment?: string },
-    @Request() req: any,
+    @Body() body: UpdateReviewDto | undefined,
+    @Req() req: Request & { user: any },
   ) {
-    return this.reviewsService.updateReview(
-      parseInt(id),
-      req.user.userId,
-      body.rating,
-      body.comment,
-    );
+    if (!body) {
+      throw new BadRequestException('Request body is required');
+    }
+
+    const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN';
+    return this.reviewsService.updateReview(parseInt(id, 10), req.user.userId, body.rating, body.comment, isAdmin);
   }
 
-
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete review' })
-  async deleteReview(@Param('id') id: string, @Request() req: any) {
-    return this.reviewsService.deleteReview(
-      parseInt(id),
-      req.user.userId,
-      req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN',
-    );
+  @ApiOperation({
+    summary: "Sharhni o'chirish",
+    description: "Sharhni o'chirish (faqat sharh egasi yoki admin ruxsatiga ega foydalanuvchilar uchun).",
+  })
+  async deleteReview(@Param('id') id: string, @Req() req: Request & { user: any }) {
+    const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN';
+    return this.reviewsService.deleteReview(parseInt(id, 10), req.user.userId, isAdmin);
   }
 }

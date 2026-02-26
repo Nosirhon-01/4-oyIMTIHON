@@ -1,100 +1,91 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Param,
-  Body,
-  Query,
-  UseGuards,
-  Request,
-  UseInterceptors,
-  UploadedFile,
-  UploadedFiles
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { MoviesService } from './movies.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { AdminGuard } from '../auth/guards';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'; 
 
 @ApiTags('Movies')
 @Controller('api/movies')
 export class MoviesController {
-  constructor(private moviesService: MoviesService) {}
+  constructor(private readonly moviesService: MoviesService) {}
 
-  
   @Get()
-  @ApiOperation({ summary: 'Get all movies with filters' })
+  @ApiOperation({
+    summary: 'Kinolar royxati',
+    description: 'Public endpoint. Kinolarni pagination va filterlar bilan olish imkonini beradi.',
+  })
+  @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'skip', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'subscription_type', required: false })
+  @ApiQuery({ name: 'category', required: false })
   @ApiQuery({ name: 'accessType', required: false })
-async getAllMovies(
-  @Query('limit') limit = '10',
-  @Query('skip') skip = '0',
-  @Query('accessType') accessType?: string,
-  @Query('categoryId') categoryId?: string,
-) {
-  return this.moviesService.getAllMovies(
-    parseInt(limit),
-    parseInt(skip),
-    accessType,
-    categoryId ? parseInt(categoryId) : undefined,    
-  );
-}
+  @ApiQuery({ name: 'categoryId', required: false })
+  async getAllMovies(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('skip') skip = '0',
+    @Query('search') search?: string,
+    @Query('subscription_type') subscriptionType?: string,
+    @Query('category') categorySlug?: string,
+    @Query('accessType') accessType?: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    const parsedLimit = parseInt(limit, 10);
+    const parsedPage = parseInt(page, 10);
+    const parsedSkip = parseInt(skip, 10);
+    const finalSkip = Number.isNaN(parsedSkip) ? (parsedPage - 1) * parsedLimit : parsedSkip;
+    const finalAccessType = (subscriptionType || accessType)?.toUpperCase();
 
+    return this.moviesService.getAllMovies(
+      parsedLimit,
+      finalSkip,
+      finalAccessType,
+      search,
+      categorySlug,
+      categoryId ? parseInt(categoryId, 10) : undefined,
+    );
+  }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get movie details' })
-  async getMovieById(@Param('id') id: string, @Request() req: any) {
-  const userId = req.user?.userId
-  return this.moviesService.getMovieById(parseInt(id), userId);
-}
-
-  
   @Get('search/:query')
-  @ApiOperation({ summary: 'Search movies by title' })
+  @ApiOperation({
+    summary: "Kino qidirish",
+    description: "Public endpoint. Kino nomi bo'yicha qidiruv natijalarini qaytaradi.",
+  })
   async searchMovies(@Param('query') query: string) {
     return this.moviesService.searchMovies(query);
   }
 
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Post()
-  @UseInterceptors(FileInterceptor('poster'))
-  @ApiOperation({ summary: 'Create new movie (admin only)' })
-  async createMovie(
-    @Body()
-    body: {
-      title: string;
-      description: string;
-      releaseYear: number;
-      duration: number;
-      accessType?: 'FREE' | 'PREMIUM';
-    },
-    @UploadedFile() poster: Express.Multer.File,
-    @Request() req: any,
-  ) {
-    const data = { ...body, posterUrl: poster ? poster.path : undefined };
-    return this.moviesService.createMovie(body, req.user.userId);
+  @Get('free')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Bepul kinolar royxati',
+    description:
+      "Agar foydalanuvchida aktiv Premium obuna bo'lsa FREE va PREMIUM kinolarni, aks holda faqat FREE kinolarni qaytaradi.",
+  })
+  async getFreeMovies(@Req() req: Request & { user?: { userId: number } }) {
+    return this.moviesService.getMoviesForFreeEndpoint(req.user?.userId);
   }
 
- 
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Post(':id/files')
-  @UseInterceptors(FileInterceptor('file'))
-  @Put(':id')
-  @ApiOperation({ summary: 'Update movie (admin only)' })
-  async updateMovie(@Param('id') id: string, @Body() body: any) {
-    return this.moviesService.updateMovie(parseInt(id), body);
+  @Get(':movie_id/files')
+  @ApiOperation({
+    summary: 'Kino fayllari',
+    description:
+      "Kino fayllarini qaytaradi. Premium kino bo'lsa, faqat aktiv obunali foydalanuvchi kira oladi.",
+  })
+  async getMovieFiles(@Param('movie_id') movieId: string, @Req() req: Request & { user?: any }) {
+    await this.moviesService.getMovieById(parseInt(movieId, 10), req.user?.userId);
+    return this.moviesService.getMovieFiles(parseInt(movieId, 10));
   }
 
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete movie (admin only)' })
-  async deleteMovie(@Param('id') id: string) {
-    return this.moviesService.deleteMovie(parseInt(id));
+  @Get(':movie_id')
+  @ApiOperation({
+    summary: "Bitta kino tafsiloti",
+    description: "Kino tafsilotlarini qaytaradi. Premium kino uchun faqat aktiv obunali userga ruxsat beriladi.",
+  })
+  async getMovieById(@Param('movie_id') movieId: string, @Req() req: Request & { user?: any }) {
+    return this.moviesService.getMovieById(parseInt(movieId, 10), req.user?.userId);
   }
 }

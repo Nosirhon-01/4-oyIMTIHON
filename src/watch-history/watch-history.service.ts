@@ -19,4 +19,16 @@ export class WatchHistoryService {
       create: { userId, movieId, watchedDuration, watchedPercentage },
     });
   }
+
+  async deleteWatchHistoryItem(userId: number, movieId: number) {
+    return this.prisma.watchHistory.deleteMany({
+      where: { userId, movieId },
+    });
+  }
+
+  async clearWatchHistory(userId: number) {
+    return this.prisma.watchHistory.deleteMany({
+      where: { userId },
+    });
+  }
 }
